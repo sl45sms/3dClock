@@ -8,7 +8,7 @@ Required libraries:
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
-#include <lvgl.h>
+#include <lvgl.h> // lv_conf.h should be included before this by the library itself if found
 
 // WiFi and NTP includes
 #include <WiFi.h>
@@ -82,7 +82,17 @@ void setup() {
     SPI.begin(TFT_SCLK, -1, TFT_MOSI, TFT_CS);
     tft.init(TFT_WIDTH, TFT_HEIGHT);
     tft.setSPISpeed(40000000UL); // Max SPI speed for ST7789 can be higher
-    tft.setRotation(0);
+    tft.setSPISpeed(40000000UL); // Max SPI speed for ST7789 can be higher
+
+// Mirror the screen horizontally only
+tft.setRotation(0); // Normal rotation
+tft.invertDisplay(false); // No color inversion
+// For Adafruit_ST7789, horizontal mirroring is not directly supported by setRotation.
+// Mirror horizontally (flip X axis) via MADCTL, preserving RGB color order
+uint8_t madctl = ST77XX_MADCTL_MX | ST77XX_MADCTL_RGB; // Mirror X axis
+
+tft.sendCommand(ST77XX_MADCTL, &madctl, 1);
+    // Clear the screen
     tft.fillScreen(ST77XX_BLACK);
     Serial.println("TFT display initialized");
 
@@ -110,13 +120,13 @@ void setup() {
 
     // Set screen background to a color
     lv_obj_t *scr = lv_screen_active();
-    lv_obj_set_style_bg_color(scr, lv_color_hex(0x003a57), LV_PART_MAIN | LV_STATE_DEFAULT); // Dark blue background
+    lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT); // Black background
 
     // Create a label for time display
     lv_obj_t *label = lv_label_create(scr);
     // lv_label_set_text(label, "Hello LVGL!"); // Will be replaced by time
     lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT); // White text
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT); // Changed to 14pt font
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_28, LV_PART_MAIN | LV_STATE_DEFAULT); // Changed to 28pt font
     lv_obj_align(label, LV_ALIGN_CENTER, 0, 0); // Align to center
 
     Serial.println("LVGL UI created. Waiting for loop...");

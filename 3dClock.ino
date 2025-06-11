@@ -82,18 +82,17 @@ void setup() {
     SPI.begin(TFT_SCLK, -1, TFT_MOSI, TFT_CS);
     tft.init(TFT_WIDTH, TFT_HEIGHT);
     tft.setSPISpeed(40000000UL); // Max SPI speed for ST7789 can be higher
-    tft.setSPISpeed(40000000UL); // Max SPI speed for ST7789 can be higher
 
 // Mirror the screen horizontally only
-tft.setRotation(0); // Normal rotation
-tft.invertDisplay(false); // No color inversion
+tft.setRotation(2); // Normal rotation
+//tft.invertDisplay(false); // No color inversion
 // For Adafruit_ST7789, horizontal mirroring is not directly supported by setRotation.
 // Mirror horizontally (flip X axis) via MADCTL, preserving RGB color order
 uint8_t madctl = ST77XX_MADCTL_MX | ST77XX_MADCTL_RGB; // Mirror X axis
 
 tft.sendCommand(ST77XX_MADCTL, &madctl, 1);
-    // Clear the screen
-    tft.fillScreen(ST77XX_BLACK);
+    // Do NOT clear the screen here; LVGL will handle all drawing
+    // tft.fillScreen(ST77XX_BLACK); // <-- Remove or comment out this line
     Serial.println("TFT display initialized");
 
     // Initialize LVGL
@@ -118,16 +117,20 @@ tft.sendCommand(ST77XX_MADCTL, &madctl, 1);
 
     // --- Create a simple LVGL UI ---
 
-    // Set screen background to a color
+    // Set screen background to black using LVGL v9 API
     lv_obj_t *scr = lv_screen_active();
+    lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT); // Ensure background is fully opaque
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT); // Black background
 
     // Create a label for time display
     lv_obj_t *label = lv_label_create(scr);
-    // lv_label_set_text(label, "Hello LVGL!"); // Will be replaced by time
+    lv_label_set_text(label, "00:00:00"); // Initial text
     lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT); // White text
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_28, LV_PART_MAIN | LV_STATE_DEFAULT); // Changed to 28pt font
-    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0); // Align to center
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_28, LV_PART_MAIN | LV_STATE_DEFAULT); // 28pt font
+    lv_obj_center(label); // Center the label on the screen
+
+    // Force LVGL to redraw the whole screen
+    lv_obj_invalidate(scr);
 
     Serial.println("LVGL UI created. Waiting for loop...");
 }

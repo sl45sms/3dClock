@@ -120,12 +120,24 @@ Serial.println("TFT display initialized");
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT); // Ensure background is fully opaque
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT); // Black background
 
-    // Create a label for time display
+    // --- Analog clock (LVGL v9, using objects for hands/face) ---
+    // Create a container for the analog clock
+    lv_obj_t *analog_cont = lv_obj_create(scr);
+    lv_obj_set_size(analog_cont, 120, 120); // width, height
+    lv_obj_set_style_bg_opa(analog_cont, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_opa(analog_cont, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(analog_cont, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_align(analog_cont, LV_ALIGN_TOP_MID, 0, 10); // Top center, 10px from top
+
+    // Create a label for time display (digital)
     lv_obj_t *label = lv_label_create(scr);
     lv_label_set_text(label, "00:00:00"); // Initial text
     lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT); // White text
     lv_obj_set_style_text_font(label, &DSEG7_Classic_Mini, LV_PART_MAIN | LV_STATE_DEFAULT); // Use digital font
-    lv_obj_center(label); // Center the label on the screen
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 140); // Slide label down below analog clock
+
+    // Store analog_cont in user data for use in loop
+    lv_obj_set_user_data(analog_cont, NULL); // Not used, but placeholder for future
 
     // Force LVGL to redraw the whole screen
     lv_obj_invalidate(scr);
@@ -169,6 +181,89 @@ int getAthensOffset(time_t now) {
     }
 }
 
+// --- Analog clock drawing helper using LVGL objects ---
+#include <math.h>
+void free_line_points(lv_event_t *e) {
+    lv_obj_t *line = (lv_obj_t *)lv_event_get_target(e);
+    void *points = lv_obj_get_user_data(line);
+    if(points) lv_free(points);
+}
+
+void draw_analog_clock(lv_obj_t *cont, int hour, int min, int sec) {
+    // Remove previous hands/marks and free their points
+    while (lv_obj_get_child_cnt(cont) > 0) {
+        lv_obj_t *child = lv_obj_get_child(cont, 0);
+        void *points = lv_obj_get_user_data(child);
+        if(points) lv_free(points);
+        lv_obj_del(child);
+    }
+    int cx = 60, cy = 60, r = 55;
+    // Draw hour marks
+    for (int i = 0; i < 12; i++) {
+        float angle = (i * 30 - 90) * 3.14159f / 180.0f;
+        int x1 = cx + (int)(cosf(angle) * (r - 10));
+        int y1 = cy + (int)(sinf(angle) * (r - 10));
+        int x2 = cx + (int)(cosf(angle) * (r - 2));
+        int y2 = cy + (int)(sinf(angle) * (r - 2));
+        lv_obj_t *mark = lv_line_create(cont);
+        lv_point_precise_t *pts = (lv_point_precise_t*)lv_malloc(sizeof(lv_point_precise_t) * 2);
+        pts[0].x = x1; pts[0].y = y1;
+        pts[1].x = x2; pts[1].y = y2;
+        lv_line_set_points_mutable(mark, pts, 2);
+        lv_obj_set_user_data(mark, pts);
+        lv_obj_add_event_cb(mark, free_line_points, LV_EVENT_DELETE, NULL);
+        lv_obj_set_style_line_color(mark, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+        lv_obj_set_style_line_width(mark, 2, LV_PART_MAIN);
+    }
+    // Draw hour hand
+    float hour_angle = ((hour % 12) + min / 60.0f) * 30.0f - 90.0f;
+    hour_angle = hour_angle * 3.14159f / 180.0f;
+    int hx = cx + (int)(cosf(hour_angle) * (r - 30));
+    int hy = cy + (int)(sinf(hour_angle) * (r - 30));
+    lv_obj_t *hour_hand = lv_line_create(cont);
+    lv_point_precise_t *hour_pts = (lv_point_precise_t*)lv_malloc(sizeof(lv_point_precise_t) * 2);
+    hour_pts[0].x = cx; hour_pts[0].y = cy;
+    hour_pts[1].x = hx; hour_pts[1].y = hy;
+    lv_line_set_points_mutable(hour_hand, hour_pts, 2);
+    lv_obj_set_user_data(hour_hand, hour_pts);
+    lv_obj_add_event_cb(hour_hand, free_line_points, LV_EVENT_DELETE, NULL);
+    lv_obj_set_style_line_color(hour_hand, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_style_line_width(hour_hand, 5, LV_PART_MAIN);
+    // Draw minute hand
+    float min_angle = (min * 6.0f - 90.0f) * 3.14159f / 180.0f;
+    int mx = cx + (int)(cosf(min_angle) * (r - 18));
+    int my = cy + (int)(sinf(min_angle) * (r - 18));
+    lv_obj_t *min_hand = lv_line_create(cont);
+    lv_point_precise_t *min_pts = (lv_point_precise_t*)lv_malloc(sizeof(lv_point_precise_t) * 2);
+    min_pts[0].x = cx; min_pts[0].y = cy;
+    min_pts[1].x = mx; min_pts[1].y = my;
+    lv_line_set_points_mutable(min_hand, min_pts, 2);
+    lv_obj_set_user_data(min_hand, min_pts);
+    lv_obj_add_event_cb(min_hand, free_line_points, LV_EVENT_DELETE, NULL);
+    lv_obj_set_style_line_color(min_hand, lv_color_hex(0x00FF00), LV_PART_MAIN);
+    lv_obj_set_style_line_width(min_hand, 3, LV_PART_MAIN);
+    // Draw second hand
+    float sec_angle = (sec * 6.0f - 90.0f) * 3.14159f / 180.0f;
+    int sx = cx + (int)(cosf(sec_angle) * (r - 10));
+    int sy = cy + (int)(sinf(sec_angle) * (r - 10));
+    lv_obj_t *sec_hand = lv_line_create(cont);
+    lv_point_precise_t *sec_pts = (lv_point_precise_t*)lv_malloc(sizeof(lv_point_precise_t) * 2);
+    sec_pts[0].x = cx; sec_pts[0].y = cy;
+    sec_pts[1].x = sx; sec_pts[1].y = sy;
+    lv_line_set_points_mutable(sec_hand, sec_pts, 2);
+    lv_obj_set_user_data(sec_hand, sec_pts);
+    lv_obj_add_event_cb(sec_hand, free_line_points, LV_EVENT_DELETE, NULL);
+    lv_obj_set_style_line_color(sec_hand, lv_color_hex(0xFF0000), LV_PART_MAIN);
+    lv_obj_set_style_line_width(sec_hand, 1, LV_PART_MAIN);
+    // Draw center dot (use a small circle)
+    lv_obj_t *center = lv_obj_create(cont);
+    lv_obj_set_size(center, 8, 8);
+    lv_obj_set_style_radius(center, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(center, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(center, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_align(center, LV_ALIGN_CENTER, 0, 0);
+}
+
 void loop() {
     static uint32_t last_tick = 0;
     static uint32_t last_time_update = 0;
@@ -188,6 +283,7 @@ void loop() {
     // Update time every second
     if (current_millis - last_time_update >= 1000) {
         last_time_update = current_millis;
+        int hour = 0, min = 0, sec = 0;
         if (WiFi.status() == WL_CONNECTED) {
             timeClient.update();
             // --- Automatic DST offset update ---
@@ -198,32 +294,21 @@ void loop() {
                 lastOffset = correctOffset;
             }
             String formattedTime = timeClient.getFormattedTime();
-            
-            // Example: Add day of the week (optional)
-            // int dayOfWeek = timeClient.getDay(); // 0 = Sunday, 1 = Monday, ...
-            // String dayStr;
-            // switch(dayOfWeek) {
-            //    case 0: dayStr = "Sun"; break;
-            //    case 1: dayStr = "Mon"; break;
-            //    case 2: dayStr = "Tue"; break;
-            //    case 3: dayStr = "Wed"; break;
-            //    case 4: dayStr = "Thu"; break;
-            //    case 5: dayStr = "Fri"; break;
-            //    case 6: dayStr = "Sat"; break;
-            //    default: dayStr = "";
-            // }
-            // String displayStr = dayStr + " " + formattedTime;
-
-            lv_obj_t *time_label = lv_obj_get_child(lv_screen_active(), 0); // Assuming label is the first child
+            sscanf(formattedTime.c_str(), "%2d:%2d:%2d", &hour, &min, &sec);
+            lv_obj_t *time_label = lv_obj_get_child(lv_screen_active(), 1); // label is now 2nd child
             if (time_label) {
                  lv_label_set_text(time_label, formattedTime.c_str());
-                 // lv_label_set_text(time_label, displayStr.c_str()); // If using day + time
             }
         } else {
-            lv_obj_t *time_label = lv_obj_get_child(lv_screen_active(), 0);
+            lv_obj_t *time_label = lv_obj_get_child(lv_screen_active(), 1);
             if (time_label) {
                  lv_label_set_text(time_label, "WiFi...");
             }
+        }
+        // Draw analog clock
+        lv_obj_t *analog_cont = lv_obj_get_child(lv_screen_active(), 0); // analog_cont
+        if (analog_cont) {
+            draw_analog_clock(analog_cont, hour, min, sec);
         }
     }
 

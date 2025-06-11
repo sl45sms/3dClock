@@ -1,87 +1,51 @@
-# Hardware features of ESP32-C3 board.
+# ESP32-C3 LVGL Clock Example
 
 ## Overview
-This is a compact development board featuring an ESP32-C3 single-core RISC-V processor. It is designed for portable applications, integrating a color LCD, a 6-axis motion sensor (IMU), a TF/SD card slot, and a complete battery charging and management circuit. All major peripherals are mapped to specific GPIO pins which you can control with your code.
+This project is a minimal digital and analog clock for the ESP32-C3 board, using a 240x240 ST7789 SPI LCD and the LVGL v9 graphics library. The clock synchronizes time via WiFi and NTP, and displays both a digital (7-segment style) and analog clock face using the DSEG7_Classic_Mini font.
 
-## Programming and Debugging
-The board is programmed via the USB Type-C port. This port is connected to a CH343P USB-to-Serial chip , which handles communication with the ESP32-C3's primary UART (U0TXD/U0RXD).
+## Features
+- Digital and analog clock display (LVGL v9)
+- WiFi NTP time synchronization (with Athens DST auto-adjust)
+- Uses DSEG7_Classic_Mini font for digital display
+- Designed for ESP32-C3 with ST7789 240x240 SPI LCD
 
-Serial TX (from ESP32): GPIO21 (U0TXD) 
-Serial RX (to ESP32): GPIO20 (U0RXD) 
-The CH343P chip also manages the ESP_EN and IO9 pins, allowing for automatic reset and bootloader mode. This means you can flash new firmware using standard tools like the Arduino IDE or ESP-IDF without needing to manually press any buttons.
+## Pin Assignments (as used in this program)
+| Function         | ESP32-C3 GPIO | Notes                |
+|------------------|--------------|----------------------|
+| TFT_CS (CS)      | GPIO2        | LCD Chip Select      |
+| TFT_DC (DC)      | GPIO3        | LCD Data/Command     |
+| TFT_RST (Reset)  | GPIO8        | LCD Reset            |
+| TFT_SCLK (SCL)   | GPIO4        | SPI Clock            |
+| TFT_MOSI (SDA)   | GPIO7        | SPI Data Out (MOSI)  |
 
-## Peripheral GPIO Mapping
-### LCD Display (SPI Interface)
-The board includes a 240x240 color LCD connected via an SPI interface. Note that the SPI Clock and Data Output pins are shared with the SD Card slot.
+> **Note:** Other peripherals (SD card, IMU, battery ADC, onboard LED) are not used by this program.
 
-SCL (Clock): GPIO9 (connected to ESP32's SPICLK pin) 
-SDA (MOSI/Data Out): GPIO10 (connected to ESP32's SPID pin) 
-CS (Chip Select): GPIO1 (connected to ESP32's SPICS0 pin) 
-DC (Data/Command): GPIO2 
-RES (Reset): GPIO11 
+## How it Works
+- On boot, the ESP32-C3 connects to WiFi and fetches the current time from an NTP server.
+- The time is displayed both as a digital clock (using a 7-segment font) and as an analog clock (drawn with LVGL objects).
+- The display is mirrored horizontally for correct orientation.
+- Daylight Saving Time (DST) for Athens is handled automatically.
 
-### QMI8658 Inertial Measurement Unit (I2C Interface)
-A 6-axis QMI8658 (Gyroscope + Accelerometer) is available on an I2C bus.
+## Usage
+1. Edit the WiFi credentials in `3dClock.ino`:
+   ```cpp
+   const char* ssid     = "YOUR_SSID";
+   const char* password = "YOUR_PASSWORD";
+   ```
+2. Compile and upload using Arduino CLI:
+   ```sh
+   ./upload.sh
+   ```
+   This script will compile, upload, and open the serial monitor automatically.
 
-SCL (Clock): GPIO6 
-SDA (Data): GPIO5 
+## Font: DSEG7_Classic_Mini
+The DSEG7_Classic_Mini font is included and used for the digital clock display. It is licensed under the SIL Open Font License, Version 1.1.
 
-### TF/MicroSD Card Slot (SPI Interface)
-The TF card slot allows for expandable storage and communicates over the same SPI bus as the display. It uses a different Chip Select pin to avoid conflicts.
+## Dependencies
+- LVGL v9.x
+- Adafruit GFX Library
+- Adafruit ST7735 and ST7789 Library
+- WiFi, NTPClient libraries (for time sync)
 
-CLK (Clock): GPIO9 (Shared with LCD) 
-
-DI (MOSI/Data In): GPIO10 (Shared with LCD) 
-
-DO (MISO/Data Out): GPIO4 
-
-CS (Chip Select): GPIO18 
-
-### Onboard LED
-The ESP32-C3 chip itself contains a user-programmable RGB LED connected to GPIO8. You can control its color and brightness directly from your code.
-
-## Power Management
-A programmer can monitor the battery level through one of the ADC (Analog-to-Digital Converter) pins.
-
-Battery Voltage Sensing: GPIO0  is connected to the battery's VBAT line through a voltage divider (R11=100K, R12=47K). To get the actual battery voltage, you must read the analog value from GPIO0 and account for this divider in your code.
-
-## GPIO Summary Table for Programmers
-
-### Programming/UART
-| Function      | ESP32-C3 GPIO | Interface | Notes                |
-|---------------|--------------|-----------|----------------------|
-| UART TX      | GPIO21        | UART      | For serial monitor output. |
-| UART RX      | GPIO20        | UART      | For serial input. |
-
-### LCD Display
-| Function      | ESP32-C3 GPIO | Interface | Notes                |
-|---------------|--------------|-----------|----------------------|
-| LCD SCL (Clock) | GPIO4        | SPI       |  |
-| LCD SDA (MOSI)  | GPIO7       | SPI       |   |
-| LCD CS          | GPIO2        | SPI       |                      |
-| LCD DC          | GPIO3        | GPIO      |                      |
-| LCD Reset       | GPIO8       | GPIO      |                      |
-
-### QMI8658 IMU			
-| Function   | ESP32-C3 GPIO | Interface | Notes |
-|------------|---------------|-----------|-------|
-| IMU SCL    | GPIO6         | I2C       |       |
-| IMU SDA    | GPIO5         | I2C       |       |
-
-### Onboard LED
-| Function   | ESP32-C3 GPIO | Interface | Notes                                 |
-|------------|---------------|-----------|---------------------------------------|
-| RGB LED    | GPIO8         | GPIO      | Integrated into the ESP32-C3 module.  |
-
-### Power
-| Function      | ESP32-C3 GPIO | Interface | Notes                                         |
-|---------------|--------------|-----------|-----------------------------------------------|
-| Battery ADC   | GPIO0        | ADC       | Reads battery voltage via a voltage divider.  |
-
-
-# Additional Notes
- Use arduino-cli to compile and upload code to the ESP32-C3 board.
- 
-# font DSEG7_Classic_Mini
-it is recommended to use the LVGL font converter to generate the font data from a TTF file. The DSEG7_Classic_Mini font is a 7-segment style font suitable for digital clocks and displays. 
-It is under the SIL Open Font License, Version 1.1, which allows for both personal and commercial use with some conditions.
+---
+For more details, see the comments in `3dClock.ino`.

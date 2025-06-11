@@ -193,9 +193,7 @@ void draw_analog_clock(lv_obj_t *cont, int hour, int min, int sec) {
     // Remove previous hands/marks and free their points
     while (lv_obj_get_child_cnt(cont) > 0) {
         lv_obj_t *child = lv_obj_get_child(cont, 0);
-        void *points = lv_obj_get_user_data(child);
-        if(points) lv_free(points);
-        lv_obj_del(child);
+        lv_obj_del(child); // Only delete, let LV_EVENT_DELETE free the points
     }
     int cx = 60, cy = 60, r = 55;
     // Draw hour marks
@@ -269,7 +267,7 @@ void loop() {
     static uint32_t last_time_update = 0;
     static int lastOffset = -1; // Track last set offset
     uint32_t current_millis = millis();
-    
+    Serial.println(current_millis); // Debug: show loop frequency
     // Calculate elapsed time for lv_tick_inc
     uint32_t elapsed_time = current_millis - last_tick;
     if (elapsed_time == 0) { // Ensure at least 1ms passes for tick
@@ -277,18 +275,21 @@ void loop() {
     }
     lv_tick_inc(elapsed_time);
     last_tick = current_millis;
-    
     lv_timer_handler();
-
     // Update time every second
     if (current_millis - last_time_update >= 1000) {
         last_time_update = current_millis;
         int hour = 0, min = 0, sec = 0;
+        Serial.println("Updating time...");
+        Serial.println("Before timeClient.update()");
         if (WiFi.status() == WL_CONNECTED) {
             timeClient.update();
+            Serial.println("After timeClient.update()");
             // --- Automatic DST offset update ---
+            Serial.println("Before getAthensOffset");
             time_t rawTime = timeClient.getEpochTime();
             int correctOffset = getAthensOffset(rawTime);
+            Serial.println("After getAthensOffset");
             if (lastOffset != correctOffset) {
                 timeClient.setTimeOffset(correctOffset);
                 lastOffset = correctOffset;
@@ -298,19 +299,23 @@ void loop() {
             lv_obj_t *time_label = lv_obj_get_child(lv_screen_active(), 1); // label is now 2nd child
             if (time_label) {
                  lv_label_set_text(time_label, formattedTime.c_str());
+                 lv_obj_invalidate(time_label);
             }
         } else {
             lv_obj_t *time_label = lv_obj_get_child(lv_screen_active(), 1);
             if (time_label) {
                  lv_label_set_text(time_label, "WiFi...");
+                 lv_obj_invalidate(time_label);
             }
         }
         // Draw analog clock
+        Serial.println("Before draw_analog_clock");
         lv_obj_t *analog_cont = lv_obj_get_child(lv_screen_active(), 0); // analog_cont
         if (analog_cont) {
             draw_analog_clock(analog_cont, hour, min, sec);
+            lv_obj_invalidate(analog_cont);
         }
+        Serial.println("After draw_analog_clock");
     }
-
-    delay(5); // Call LVGL tasks every 5ms
+    delay(1); // Call LVGL tasks as often as possible
 }

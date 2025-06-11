@@ -62,40 +62,40 @@ void my_disp_flush(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map) {
 void setup() {
     Serial.begin(115200);
     delay(2000); // Wait for serial monitor
-    Serial.println("\n=== LVGL v9 ST7789 Clock ===\n");
+    //Serial.println("\n=== LVGL v9 ST7789 Clock ===\n");
 
     // Initialize WiFi
-    Serial.print("Connecting to WiFi: ");
-    Serial.println(ssid);
+    //Serial.print("Connecting to WiFi: ");
+    //Serial.println(ssid);
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
-        Serial.print(".");
+        //Serial.print(".");
     }
-    Serial.println("\nWiFi connected!");
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
+    //Serial.println("\nWiFi connected!");
+    //Serial.print("IP address: ");
+    //Serial.println(WiFi.localIP());
 
     // Initialize NTP client
     timeClient.begin();
-    Serial.println("NTP client started");
+    //Serial.println("NTP client started");
 
     // Initialize TFT display
     SPI.begin(TFT_SCLK, -1, TFT_MOSI, TFT_CS);
     tft.init(TFT_WIDTH, TFT_HEIGHT);
     tft.setSPISpeed(40000000UL); // Max SPI speed for ST7789 can be higher
 
-// Mirror the screen horizontally only
-tft.setRotation(2);
-// For Adafruit_ST7789, horizontal mirroring is not directly supported by setRotation.
-// Mirror horizontally (flip X axis) via MADCTL, preserving RGB color order
-uint8_t madctl = ST77XX_MADCTL_MX | ST77XX_MADCTL_RGB; // Mirror X axis
-tft.sendCommand(ST77XX_MADCTL, &madctl, 1);
-Serial.println("TFT display initialized");
+    // Mirror the screen horizontally only
+    tft.setRotation(2);
+    // For Adafruit_ST7789, horizontal mirroring is not directly supported by setRotation.
+    // Mirror horizontally (flip X axis) via MADCTL, preserving RGB color order
+    uint8_t madctl = ST77XX_MADCTL_MX | ST77XX_MADCTL_RGB; // Mirror X axis
+    tft.sendCommand(ST77XX_MADCTL, &madctl, 1);
+    //Serial.println("TFT display initialized");
 
     // Initialize LVGL
     lv_init();
-    Serial.println("LVGL initialized");
+    //Serial.println("LVGL initialized");
 
     // Initialize LVGL display driver
     // For LVGL v9, the stride is in bytes, not pixels.
@@ -105,13 +105,12 @@ Serial.println("TFT display initialized");
     
     lv_display_t *disp = lv_display_create(TFT_WIDTH, TFT_HEIGHT);
     if (disp == NULL) {
-        Serial.println("ERROR: lv_display_create failed!");
         while(1);
     }
     lv_display_set_flush_cb(disp, my_disp_flush);
     lv_display_set_draw_buffers(disp, &draw_buf, NULL); // Single buffer
 
-    Serial.println("LVGL display driver initialized");
+    //Serial.println("LVGL display driver initialized");
 
     // --- Create a simple LVGL UI ---
 
@@ -142,7 +141,7 @@ Serial.println("TFT display initialized");
     // Force LVGL to redraw the whole screen
     lv_obj_invalidate(scr);
 
-    Serial.println("LVGL UI created. Waiting for loop...");
+    //Serial.println("LVGL UI created. Waiting for loop...");
 }
 
 // --- DST calculation for Athens, Greece ---
@@ -267,7 +266,7 @@ void loop() {
     static uint32_t last_time_update = 0;
     static int lastOffset = -1; // Track last set offset
     uint32_t current_millis = millis();
-    Serial.println(current_millis); // Debug: show loop frequency
+    //Serial.println(current_millis); // Debug: show loop frequency
     // Calculate elapsed time for lv_tick_inc
     uint32_t elapsed_time = current_millis - last_tick;
     if (elapsed_time == 0) { // Ensure at least 1ms passes for tick
@@ -280,16 +279,16 @@ void loop() {
     if (current_millis - last_time_update >= 1000) {
         last_time_update = current_millis;
         int hour = 0, min = 0, sec = 0;
-        Serial.println("Updating time...");
-        Serial.println("Before timeClient.update()");
+        //Serial.println("Updating time...");
+        //Serial.println("Before timeClient.update()");
         if (WiFi.status() == WL_CONNECTED) {
             timeClient.update();
-            Serial.println("After timeClient.update()");
+            //Serial.println("After timeClient.update()");
             // --- Automatic DST offset update ---
-            Serial.println("Before getAthensOffset");
+            //Serial.println("Before getAthensOffset");
             time_t rawTime = timeClient.getEpochTime();
             int correctOffset = getAthensOffset(rawTime);
-            Serial.println("After getAthensOffset");
+            //Serial.println("After getAthensOffset");
             if (lastOffset != correctOffset) {
                 timeClient.setTimeOffset(correctOffset);
                 lastOffset = correctOffset;
@@ -309,13 +308,13 @@ void loop() {
             }
         }
         // Draw analog clock
-        Serial.println("Before draw_analog_clock");
+        //Serial.println("Before draw_analog_clock");
         lv_obj_t *analog_cont = lv_obj_get_child(lv_screen_active(), 0); // analog_cont
         if (analog_cont) {
             draw_analog_clock(analog_cont, hour, min, sec);
             lv_obj_invalidate(analog_cont);
         }
-        Serial.println("After draw_analog_clock");
+        //Serial.println("After draw_analog_clock");
     }
     delay(1); // Call LVGL tasks as often as possible
 }

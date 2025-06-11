@@ -1,5 +1,5 @@
 #!/bin/bash
-arduino-cli compile --fqbn esp32:esp32:esp32c3 . 
+arduino-cli compile --clean --fqbn esp32:esp32:esp32c3 . 
 if [ $? -ne 0 ]; then
     echo "Compilation failed. Exiting."
     exit 1

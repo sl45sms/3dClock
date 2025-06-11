@@ -126,14 +126,14 @@ void setup() {
     lv_obj_set_style_bg_opa(analog_cont, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_opa(analog_cont, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_pad_all(analog_cont, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_align(analog_cont, LV_ALIGN_TOP_MID, 0, 10); // Top center, 10px from top
+    lv_obj_align(analog_cont, LV_ALIGN_TOP_MID, 0, 30); // Top center, 30px from top (increased from 10)
 
     // Create a label for time display (digital)
     lv_obj_t *label = lv_label_create(scr);
     lv_label_set_text(label, "00:00:00"); // Initial text
     lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT); // White text
     lv_obj_set_style_text_font(label, &DSEG7_Classic_Mini, LV_PART_MAIN | LV_STATE_DEFAULT); // Use digital font
-    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 140); // Slide label down below analog clock
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 170); // Move label further down below analog clock
 
     // Store analog_cont in user data for use in loop
     lv_obj_set_user_data(analog_cont, NULL); // Not used, but placeholder for future

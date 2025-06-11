@@ -1,5 +1,11 @@
 #!/bin/bash
-arduino-cli compile --clean --fqbn esp32:esp32:esp32c3 . 
+if [ "$1" == "--clean" ]; then
+    CLEAN_FLAG="--clean"
+else
+    CLEAN_FLAG=""
+fi
+
+arduino-cli compile $CLEAN_FLAG --fqbn esp32:esp32:esp32c3 . 
 if [ $? -ne 0 ]; then
     echo "Compilation failed. Exiting."
     exit 1

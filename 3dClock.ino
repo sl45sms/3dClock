@@ -8,7 +8,7 @@ Required libraries:
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
-#include <lvgl.h> // lv_conf.h should be included before this by the library itself if found
+#include <lvgl.h> 
 
 // WiFi and NTP includes
 #include <WiFi.h>
@@ -16,13 +16,14 @@ Required libraries:
 #include <NTPClient.h>
 
 // WiFi credentials (replace with your actual credentials)
-const char* ssid     = "TheDevicesNetwork";
-const char* password = "AaBbCcDd..123!";
+const char* ssid     = "YOUR_SSID"; // Replace with your WiFi SSID
+const char* password = "YOUR_PASSWORD"; // Replace with your WiFi password
 
 // NTP client setup
 WiFiUDP ntpUDP;
-// Update time every minute (60000 ms), offset for GMT+0, adjust as needed
-#define NTP_OFFSET 7200 // Offset in seconds for Athens (GMT+2, adjust as needed)
+
+// Offset in seconds for Athens (GMT+2, adjust as needed)
+#define NTP_OFFSET 7200 // 2 hours offset for Athens (GMT+2) 
 NTPClient timeClient(ntpUDP, "pool.ntp.org", NTP_OFFSET, 60000);
 
 
@@ -60,7 +61,7 @@ void my_disp_flush(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map) {
 void setup() {
     Serial.begin(115200);
     delay(2000); // Wait for serial monitor
-    Serial.println("\n=== LVGL v9 ST7789 Clock Test ===\n");
+    Serial.println("\n=== LVGL v9 ST7789 Clock ===\n");
 
     // Initialize WiFi
     Serial.print("Connecting to WiFi: ");
@@ -84,16 +85,12 @@ void setup() {
     tft.setSPISpeed(40000000UL); // Max SPI speed for ST7789 can be higher
 
 // Mirror the screen horizontally only
-tft.setRotation(2); // Normal rotation
-//tft.invertDisplay(false); // No color inversion
+tft.setRotation(2);
 // For Adafruit_ST7789, horizontal mirroring is not directly supported by setRotation.
 // Mirror horizontally (flip X axis) via MADCTL, preserving RGB color order
 uint8_t madctl = ST77XX_MADCTL_MX | ST77XX_MADCTL_RGB; // Mirror X axis
-
 tft.sendCommand(ST77XX_MADCTL, &madctl, 1);
-    // Do NOT clear the screen here; LVGL will handle all drawing
-    // tft.fillScreen(ST77XX_BLACK); // <-- Remove or comment out this line
-    Serial.println("TFT display initialized");
+Serial.println("TFT display initialized");
 
     // Initialize LVGL
     lv_init();
@@ -101,7 +98,7 @@ tft.sendCommand(ST77XX_MADCTL, &madctl, 1);
 
     // Initialize LVGL display driver
     // For LVGL v9, the stride is in bytes, not pixels.
-    // For LV_COLOR_FORMAT_NATIVE with 16-bit color, bytes_per_pixel is 2.
+    // For LV_COLOR_FORMAT_NATIVE with 16-bit color, bytes_per_pixel = 2.
     uint32_t stride_bytes = TFT_WIDTH * lv_color_format_get_size(LV_COLOR_FORMAT_NATIVE);
     lv_draw_buf_init(&draw_buf, TFT_WIDTH, (TFT_HEIGHT / 10), LV_COLOR_FORMAT_NATIVE, stride_bytes, buf1, sizeof(buf1));
     
@@ -135,9 +132,46 @@ tft.sendCommand(ST77XX_MADCTL, &madctl, 1);
     Serial.println("LVGL UI created. Waiting for loop...");
 }
 
+// --- DST calculation for Athens, Greece ---
+// Returns offset in seconds: 7200 (GMT+2) for winter, 10800 (GMT+3) for summer
+int getAthensOffset(time_t now) {
+    struct tm *tm_info = gmtime(&now);
+    int year = tm_info->tm_year + 1900;
+    // Calculate last Sunday of March (DST start)
+    struct tm startDST = {0};
+    startDST.tm_year = year - 1900;
+    startDST.tm_mon = 2; // March
+    startDST.tm_mday = 31;
+    startDST.tm_hour = 1; // 04:00 local, 01:00 UTC
+    mktime(&startDST);
+    while (startDST.tm_wday != 0) { // 0 = Sunday
+        startDST.tm_mday--;
+        mktime(&startDST);
+    }
+    time_t dstStart = mktime(&startDST);
+    // Calculate last Sunday of October (DST end)
+    struct tm endDST = {0};
+    endDST.tm_year = year - 1900;
+    endDST.tm_mon = 9; // October
+    endDST.tm_mday = 31;
+    endDST.tm_hour = 1; // 04:00 local, 01:00 UTC
+    mktime(&endDST);
+    while (endDST.tm_wday != 0) {
+        endDST.tm_mday--;
+        mktime(&endDST);
+    }
+    time_t dstEnd = mktime(&endDST);
+    if (now >= dstStart && now < dstEnd) {
+        return 10800; // GMT+3 (DST)
+    } else {
+        return 7200; // GMT+2 (Standard)
+    }
+}
+
 void loop() {
     static uint32_t last_tick = 0;
     static uint32_t last_time_update = 0;
+    static int lastOffset = -1; // Track last set offset
     uint32_t current_millis = millis();
     
     // Calculate elapsed time for lv_tick_inc
@@ -155,6 +189,13 @@ void loop() {
         last_time_update = current_millis;
         if (WiFi.status() == WL_CONNECTED) {
             timeClient.update();
+            // --- Automatic DST offset update ---
+            time_t rawTime = timeClient.getEpochTime();
+            int correctOffset = getAthensOffset(rawTime);
+            if (lastOffset != correctOffset) {
+                timeClient.setTimeOffset(correctOffset);
+                lastOffset = correctOffset;
+            }
             String formattedTime = timeClient.getFormattedTime();
             
             // Example: Add day of the week (optional)

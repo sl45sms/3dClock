@@ -82,3 +82,6 @@ Battery Voltage Sensing: GPIO0  is connected to the battery's VBAT line through 
 # Additional Notes
  Use arduino-cli to compile and upload code to the ESP32-C3 board.
  
+# font DSEG7_Classic_Mini
+it is recommended to use the LVGL font converter to generate the font data from a TTF file. The DSEG7_Classic_Mini font is a 7-segment style font suitable for digital clocks and displays. 
+It is under the SIL Open Font License, Version 1.1, which allows for both personal and commercial use with some conditions.

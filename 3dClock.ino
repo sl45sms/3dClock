@@ -120,6 +120,16 @@ void setup() {
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT); // Black background
 
     // --- Analog clock (LVGL v9, using objects for hands/face) ---
+    // Create a shadow container for depth effect
+    lv_obj_t *shadow_cont = lv_obj_create(scr);
+    lv_obj_set_size(shadow_cont, 120, 120); // Same size as main clock
+    lv_obj_set_style_bg_opa(shadow_cont, LV_OPA_30, LV_PART_MAIN | LV_STATE_DEFAULT); // Semi-transparent shadow
+    lv_obj_set_style_bg_color(shadow_cont, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT); // Black shadow
+    lv_obj_set_style_border_opa(shadow_cont, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(shadow_cont, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(shadow_cont, 60, LV_PART_MAIN | LV_STATE_DEFAULT); // Circular shadow
+    lv_obj_align(shadow_cont, LV_ALIGN_TOP_MID, 3, 33); // Slightly offset from main clock for shadow effect
+    
     // Create a container for the analog clock
     lv_obj_t *analog_cont = lv_obj_create(scr);
     lv_obj_set_size(analog_cont, 120, 120); // width, height
@@ -194,6 +204,18 @@ void draw_analog_clock(lv_obj_t *cont, int hour, int min, int sec) {
         lv_obj_t *child = lv_obj_get_child(cont, 0);
         lv_obj_del(child); // Only delete, let LV_EVENT_DELETE free the points
     }
+    
+    // Add a subtle clock face background for depth
+    lv_obj_t *clock_face = lv_obj_create(cont);
+    lv_obj_set_size(clock_face, 110, 110);
+    lv_obj_set_style_radius(clock_face, 55, LV_PART_MAIN); // Circular
+    lv_obj_set_style_bg_color(clock_face, lv_color_hex(0x1a1a1a), LV_PART_MAIN); // Dark gray
+    lv_obj_set_style_bg_opa(clock_face, LV_OPA_80, LV_PART_MAIN); // Semi-transparent
+    lv_obj_set_style_border_color(clock_face, lv_color_hex(0x404040), LV_PART_MAIN); // Gray border
+    lv_obj_set_style_border_width(clock_face, 2, LV_PART_MAIN);
+    lv_obj_set_style_border_opa(clock_face, LV_OPA_60, LV_PART_MAIN);
+    lv_obj_align(clock_face, LV_ALIGN_CENTER, 0, 0);
+    
     int cx = 60, cy = 60, r = 55;
     // Draw hour marks
     for (int i = 0; i < 12; i++) {
@@ -209,8 +231,15 @@ void draw_analog_clock(lv_obj_t *cont, int hour, int min, int sec) {
         lv_line_set_points_mutable(mark, pts, 2);
         lv_obj_set_user_data(mark, pts);
         lv_obj_add_event_cb(mark, free_line_points, LV_EVENT_DELETE, NULL);
-        lv_obj_set_style_line_color(mark, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
-        lv_obj_set_style_line_width(mark, 2, LV_PART_MAIN);
+        
+        // Make 12, 3, 6, 9 marks thicker and brighter
+        if (i % 3 == 0) {
+            lv_obj_set_style_line_color(mark, lv_color_hex(0xFFFFFF), LV_PART_MAIN); // White for main hours
+            lv_obj_set_style_line_width(mark, 3, LV_PART_MAIN);
+        } else {
+            lv_obj_set_style_line_color(mark, lv_color_hex(0xCCCCCC), LV_PART_MAIN); // Light gray for others
+            lv_obj_set_style_line_width(mark, 2, LV_PART_MAIN);
+        }
     }
     // Draw hour hand
     float hour_angle = ((hour % 12) + min / 60.0f) * 30.0f - 90.0f;
@@ -252,12 +281,15 @@ void draw_analog_clock(lv_obj_t *cont, int hour, int min, int sec) {
     lv_obj_add_event_cb(sec_hand, free_line_points, LV_EVENT_DELETE, NULL);
     lv_obj_set_style_line_color(sec_hand, lv_color_hex(0xFF0000), LV_PART_MAIN);
     lv_obj_set_style_line_width(sec_hand, 1, LV_PART_MAIN);
-    // Draw center dot (use a small circle)
+    // Draw center dot (use a small circle with depth effect)
     lv_obj_t *center = lv_obj_create(cont);
-    lv_obj_set_size(center, 8, 8);
+    lv_obj_set_size(center, 10, 10);
     lv_obj_set_style_radius(center, LV_RADIUS_CIRCLE, LV_PART_MAIN);
     lv_obj_set_style_bg_color(center, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(center, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_color(center, lv_color_hex(0x808080), LV_PART_MAIN);
+    lv_obj_set_style_border_width(center, 1, LV_PART_MAIN);
+    lv_obj_set_style_border_opa(center, LV_OPA_60, LV_PART_MAIN);
     lv_obj_align(center, LV_ALIGN_CENTER, 0, 0);
 }
 
@@ -295,13 +327,13 @@ void loop() {
             }
             String formattedTime = timeClient.getFormattedTime();
             sscanf(formattedTime.c_str(), "%2d:%2d:%2d", &hour, &min, &sec);
-            lv_obj_t *time_label = lv_obj_get_child(lv_screen_active(), 1); // label is now 2nd child
+            lv_obj_t *time_label = lv_obj_get_child(lv_screen_active(), 2); // label is now 3rd child (shadow, analog, label)
             if (time_label) {
                  lv_label_set_text(time_label, formattedTime.c_str());
                  lv_obj_invalidate(time_label);
             }
         } else {
-            lv_obj_t *time_label = lv_obj_get_child(lv_screen_active(), 1);
+            lv_obj_t *time_label = lv_obj_get_child(lv_screen_active(), 2);
             if (time_label) {
                  lv_label_set_text(time_label, "WiFi...");
                  lv_obj_invalidate(time_label);
@@ -309,7 +341,7 @@ void loop() {
         }
         // Draw analog clock
         //Serial.println("Before draw_analog_clock");
-        lv_obj_t *analog_cont = lv_obj_get_child(lv_screen_active(), 0); // analog_cont
+        lv_obj_t *analog_cont = lv_obj_get_child(lv_screen_active(), 1); // analog_cont is now 2nd child
         if (analog_cont) {
             draw_analog_clock(analog_cont, hour, min, sec);
             lv_obj_invalidate(analog_cont);

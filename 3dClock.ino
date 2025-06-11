@@ -8,7 +8,8 @@ Required libraries:
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
-#include <lvgl.h> 
+#include <lvgl.h>
+#include "DSEG7_Classic_Mini.c"
 
 // WiFi and NTP includes
 #include <WiFi.h>
@@ -123,7 +124,7 @@ Serial.println("TFT display initialized");
     lv_obj_t *label = lv_label_create(scr);
     lv_label_set_text(label, "00:00:00"); // Initial text
     lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT); // White text
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_28, LV_PART_MAIN | LV_STATE_DEFAULT); // 28pt font
+    lv_obj_set_style_text_font(label, &DSEG7_Classic_Mini, LV_PART_MAIN | LV_STATE_DEFAULT); // Use digital font
     lv_obj_center(label); // Center the label on the screen
 
     // Force LVGL to redraw the whole screen

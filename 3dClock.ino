@@ -10,6 +10,22 @@ Required libraries:
 #include <Adafruit_ST7789.h>
 #include <lvgl.h>
 
+// WiFi and NTP includes
+#include <WiFi.h>
+#include <WiFiUdp.h>
+#include <NTPClient.h>
+
+// WiFi credentials (replace with your actual credentials)
+const char* ssid     = "TheDevicesNetwork";
+const char* password = "AaBbCcDd..123!";
+
+// NTP client setup
+WiFiUDP ntpUDP;
+// Update time every minute (60000 ms), offset for GMT+0, adjust as needed
+#define NTP_OFFSET 7200 // Offset in seconds for Athens (GMT+2, adjust as needed)
+NTPClient timeClient(ntpUDP, "pool.ntp.org", NTP_OFFSET, 60000);
+
+
 // Pin definitions (kept from your original script)
 #define TFT_CS   2    // Chip select pin
 #define TFT_DC   3    // Data/command pin
@@ -44,7 +60,23 @@ void my_disp_flush(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map) {
 void setup() {
     Serial.begin(115200);
     delay(2000); // Wait for serial monitor
-    Serial.println("\n=== LVGL v9 ST7789 Minimal Test ===\n");
+    Serial.println("\n=== LVGL v9 ST7789 Clock Test ===\n");
+
+    // Initialize WiFi
+    Serial.print("Connecting to WiFi: ");
+    Serial.println(ssid);
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("\nWiFi connected!");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+
+    // Initialize NTP client
+    timeClient.begin();
+    Serial.println("NTP client started");
 
     // Initialize TFT display
     SPI.begin(TFT_SCLK, -1, TFT_MOSI, TFT_CS);
@@ -80,10 +112,11 @@ void setup() {
     lv_obj_t *scr = lv_screen_active();
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x003a57), LV_PART_MAIN | LV_STATE_DEFAULT); // Dark blue background
 
-    // Create a label
+    // Create a label for time display
     lv_obj_t *label = lv_label_create(scr);
-    lv_label_set_text(label, "Hello LVGL!");
+    // lv_label_set_text(label, "Hello LVGL!"); // Will be replaced by time
     lv_obj_set_style_text_color(label, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT); // White text
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT); // Changed to 14pt font
     lv_obj_align(label, LV_ALIGN_CENTER, 0, 0); // Align to center
 
     Serial.println("LVGL UI created. Waiting for loop...");
@@ -91,6 +124,7 @@ void setup() {
 
 void loop() {
     static uint32_t last_tick = 0;
+    static uint32_t last_time_update = 0;
     uint32_t current_millis = millis();
     
     // Calculate elapsed time for lv_tick_inc
@@ -102,5 +136,41 @@ void loop() {
     last_tick = current_millis;
     
     lv_timer_handler();
+
+    // Update time every second
+    if (current_millis - last_time_update >= 1000) {
+        last_time_update = current_millis;
+        if (WiFi.status() == WL_CONNECTED) {
+            timeClient.update();
+            String formattedTime = timeClient.getFormattedTime();
+            
+            // Example: Add day of the week (optional)
+            // int dayOfWeek = timeClient.getDay(); // 0 = Sunday, 1 = Monday, ...
+            // String dayStr;
+            // switch(dayOfWeek) {
+            //    case 0: dayStr = "Sun"; break;
+            //    case 1: dayStr = "Mon"; break;
+            //    case 2: dayStr = "Tue"; break;
+            //    case 3: dayStr = "Wed"; break;
+            //    case 4: dayStr = "Thu"; break;
+            //    case 5: dayStr = "Fri"; break;
+            //    case 6: dayStr = "Sat"; break;
+            //    default: dayStr = "";
+            // }
+            // String displayStr = dayStr + " " + formattedTime;
+
+            lv_obj_t *time_label = lv_obj_get_child(lv_screen_active(), 0); // Assuming label is the first child
+            if (time_label) {
+                 lv_label_set_text(time_label, formattedTime.c_str());
+                 // lv_label_set_text(time_label, displayStr.c_str()); // If using day + time
+            }
+        } else {
+            lv_obj_t *time_label = lv_obj_get_child(lv_screen_active(), 0);
+            if (time_label) {
+                 lv_label_set_text(time_label, "WiFi...");
+            }
+        }
+    }
+
     delay(5); // Call LVGL tasks every 5ms
 }

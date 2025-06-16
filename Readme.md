@@ -1,6 +1,7 @@
 # ESP32-C3 LVGL Clock Example
 
 ![Clock](clock.jpg)
+![Demo Video](https://youtube.com/shorts/b9oFKSKzzGA?feature=share)
 
 ## Overview
 This project is a minimal digital and analog clock for the ESP32-C3 board, using a 240x240 ST7789 SPI LCD and the LVGL v9 graphics library. The clock synchronizes time via WiFi and NTP, and displays both a digital (7-segment style) and analog clock face using the DSEG7_Classic_Mini font.
